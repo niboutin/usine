@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Carte Industrielle</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #e8eef2;
+    }
+
+    #map {
+        position: relative;
+        width: 1280px;
+        height: 760px;
+        margin: 30px auto;
+        border: 2px solid #333;
+        background-image: url("england_map_02.png");
+        background-size: cover;
+        background-position: center;
+    }
+
+    /* IMAGE DE POINTAGE */
+    #scoreImage {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 120px;
+        display: none; /* invisible au départ */
+    }
+
+    .city {
+        position: absolute;
+        padding: 6px 10px;
+        background: rgba(255,255,255,0.92);
+        border: 2px solid #333;
+        border-radius: 8px;
+        font-weight: bold;
+        z-index: 10;
+        text-align: center;
+        line-height: 1.2em;
+        font-size: 1.43em;
+        cursor: pointer;
+        transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .city:hover { transform: scale(1.05); }
+
+    .selected {
+        background: #c8f7c5;
+        border-color: #2e7d32;
+    }
+
+    .pop {
+        font-size: 1.1em;
+        font-weight: normal;
+        color: #333;
+    }
+
+    /* Positions */
+    .glasgow { top: 72px; left: 493px; }
+    .norham { top: 72px; left: 859px; }
+    .liverpool { top: 289px; left: 353px; }
+    .london { top: 594px; left: 939px; }
+    .birmingham { top: 303px; left: 865px; }
+
+    /* Zone d'affichage */
+    #resultat {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 250px;
+        background: white;
+        border: 3px solid #333;
+        border-radius: 10px;
+        padding: 15px;
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #222;
+        box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* Conteneur des boutons */
+    #boutons {
+        width: 1280px;
+        margin: 20px auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #valider, #facteurs {
+        padding: 12px 25px;
+        font-size: 1.2em;
+        font-weight: bold;
+        border-radius: 8px;
+        border: 2px solid #333;
+        background: #ddd;
+        transition: background 0.2s, color 0.2s;
+    }
+
+    #valider {
+        margin-right: 100px;
+        cursor: not-allowed;
+    }
+
+    #valider.enabled {
+        background: #a5d6a7;
+        cursor: pointer;
+        border-color: #2e7d32;
+    }
+
+    #facteurs {
+        visibility: hidden;
+        cursor: pointer;
+    }
+
+    #facteurs.active {
+        background: black;
+        color: white;
+        border-color: black;
+    }
+</style>
+
+<script>
+    let selectedCity = null;
+    let resultatActif = false;
+    let facteursActifs = false;
+
+    const profits = {
+        "Glasgow": 3319,
+        "Liverpool": 5000,
+        "Londres": 4159,
+        "Birmingham": 1637,
+        "Norham": -1316
+    };
+
+    const facteurs = {
+        "Glasgow": { marche: 50, main: 70, matieres: 30, concurrence: 20 },
+        "Liverpool": { marche: 80, main: 80, matieres: 20, concurrence: 30 },
+        "Londres": { marche: 100, main: 90, matieres: 30, concurrence: 60 },
+        "Birmingham": { marche: 60, main: 30, matieres: 40, concurrence: 20 },
+        "Norham": { marche: 15, main: 20, matieres: 60, concurrence: 10 }
+    };
+
+    /* NOUVEAU : images associées aux villes */
+    const images = {
+        "Liverpool": "aplus.png",
+        "Londres": "a.png",
+        "Glasgow": "b.png",
+        "Birmingham": "oups.png",
+        "Norham": "oups.png"
+    };
+
+    function selectOnly(element) {
+        const allCities = document.querySelectorAll('.city');
+
+        if (element.classList.contains('selected')) {
+            element.classList.remove('selected');
+            selectedCity = null;
+
+            document.getElementById("valider").classList.remove("enabled");
+            document.getElementById("valider").disabled = true;
+
+            document.getElementById("resultat").innerHTML =
+                "Sélectionnez une ville<br>puis cliquez sur le bouton.";
+
+            resultatActif = false;
+
+            document.getElementById("scoreImage").style.display = "none";
+
+            return;
+        }
+
+        allCities.forEach(city => city.classList.remove('selected'));
+
+        element.classList.add('selected');
+        selectedCity = element.dataset.ville;
+
+        const btn = document.getElementById("valider");
+        btn.classList.add("enabled");
+        btn.disabled = false;
+
+        if (resultatActif) afficherProfit();
+    }
+
+    function afficherProfit() {
+        if (!selectedCity) return;
+
+        const zone = document.getElementById("resultat");
+        const profit = profits[selectedCity];
+
+        let html =
+            "<strong>" + selectedCity + "</strong><br><br>" +
+            "Profit : <span style='color:#2e7d32; font-size:1.4em;'>" +
+            profit + " £</span>";
+
+        if (facteursActifs) {
+            const f = facteurs[selectedCity];
+            html +=
+                "<br><br><u>Facteurs :</u><br>" +
+                "Marché : " + f.marche + "<br>" +
+                "Main‑d’œuvre : " + f.main + "<br>" +
+                "Coût matières premières : " + f.matieres + "<br>" +
+                "Concurrence : " + f.concurrence;
+        }
+
+        zone.innerHTML = html;
+        resultatActif = true;
+
+        /* Rendre visible le bouton facteurs */
+        document.getElementById("facteurs").style.visibility = "visible";
+
+        /* NOUVEAU : afficher l’image de pointage */
+        const img = document.getElementById("scoreImage");
+        img.src = images[selectedCity];
+        img.style.display = "block";
+    }
+
+    function toggleFacteurs() {
+        facteursActifs = !facteursActifs;
+
+        const btn = document.getElementById("facteurs");
+
+        if (facteursActifs) btn.classList.add("active");
+        else btn.classList.remove("active");
+
+        if (resultatActif) afficherProfit();
+    }
+</script>
+
+</head>
+<body>
+
+<h2 style="text-align:center;">Où allez-vous installer votre usine de fabrication de pantalons?</h2>
+
+<div id="map">
+
+    <!-- IMAGE DE POINTAGE -->
+    <img id="scoreImage" src="" alt="score">
+
+    <div id="resultat">
+        Sélectionnez une ville<br>puis cliquez sur le bouton.
+    </div>
+
+    <div class="city glasgow" data-ville="Glasgow" onclick="selectOnly(this)">
+        Glasgow<br><span class="pop">Population : 60 000</span>
+    </div>
+
+    <div class="city norham" data-ville="Norham" onclick="selectOnly(this)">
+        Norham<br><span class="pop">Population : 700</span>
+    </div>
+
+    <div class="city liverpool" data-ville="Liverpool" onclick="selectOnly(this)">
+        Liverpool<br><span class="pop">Population : 80 000</span>
+    </div>
+
+    <div class="city london" data-ville="Londres" onclick="selectOnly(this)">
+        Londres<br><span class="pop">Population : 1 000 000</span>
+    </div>
+
+    <div class="city birmingham" data-ville="Birmingham" onclick="selectOnly(this)">
+        Birmingham<br><span class="pop">Population : 20 000</span>
+    </div>
+
+</div>
+
+<div id="boutons">
+    <button id="valider" disabled onclick="afficherProfit()">Valider mon choix</button>
+    <button id="facteurs" onclick="toggleFacteurs()">Révéler les facteurs</button>
+</div>
+
+</body>
+</html>
